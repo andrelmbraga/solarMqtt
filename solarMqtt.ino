@@ -9,8 +9,9 @@
 #define AWS_IOT_PUBLISH_TOPIC   "esp32/pub"
 #define AWS_IOT_SUBSCRIBE_TOPIC "esp32/sub"
  
-unsigned long seconds = 1000L; //Notice the L 
-unsigned long minutes = seconds * 60;
+
+int minutes = 5;
+int minute = 60000;
 
 WiFiClientSecure net = WiFiClientSecure();
 PubSubClient client(net);
@@ -62,6 +63,7 @@ void connectAWS()
 void publishMessage()
 {
   StaticJsonDocument<200> doc;
+  
   doc["deviceId"] = 1234567;
   doc["battery"]["voltage"] = 11.2;
   doc["battery"]["charge"] = 80.0;
@@ -69,8 +71,22 @@ void publishMessage()
   doc["speed"]["upload"] = 6.2;
   char jsonBuffer[512];
   serializeJson(doc, jsonBuffer); // print to client
-  
-  client.publish(AWS_IOT_PUBLISH_TOPIC, jsonBuffer);
+  if(WiFi.status() != WL_CONNECTED){
+    Serial.println("Wifi disconnected");
+  }else{
+    Serial.println("Wifi connected");
+  }
+  if(!client.connect(THINGNAME)){
+    Serial.println("Client disconected");
+  }else{
+    Serial.println("Client connected");
+  }
+  bool publish_status = client.publish(AWS_IOT_PUBLISH_TOPIC, jsonBuffer);
+  while (!publish_status){
+    Serial.println("Need to connect again");
+    connectAWS();
+    publish_status = client.publish(AWS_IOT_PUBLISH_TOPIC, jsonBuffer);
+  }
 }
  
 void messageHandler(char* topic, byte* payload, unsigned int length)
@@ -83,16 +99,23 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
   const char* message = doc["message"];
   Serial.println(message);
 }
- 
+
+int count = 0;
 void setup()
 {
   Serial.begin(115200);
   connectAWS();
+  
 }
  
 void loop()
-{
+{ 
+ 
+  Serial.println("Count: " + String(count));
   publishMessage();
   client.loop();
-  delay(minutes);
+  for (int i=0;i<minutes;i++){
+    delay(minute);
+  }
+  count = count + 1;
 }
